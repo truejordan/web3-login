@@ -15,9 +15,9 @@ export const SuiConfigType = {
     testnet: "https://suiscan.xyz/testnet",
   },
   displayName: {
-    mainnet: "Sui Mainnet",
-    devnet: "Sui Devnet",
-    testnet: "Sui Testnet",
+    mainnet: "mainnet",
+    devnet: "devnet",
+    testnet: "testnet",
   },
   ticker: "SUI",
   logo: "https://cryptologos.cc/logos/sui-sui-logo.png?v=040",
