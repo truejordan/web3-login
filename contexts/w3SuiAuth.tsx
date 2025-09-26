@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK } from "@web3auth/base";
 import { CommonPrivateKeyProvider } from "@web3auth/base-provider";
-import Web3Auth, { LOGIN_PROVIDER } from "@web3auth/react-native-sdk";
-// import Constants from "expo-constants";
+import Web3Auth, { LOGIN_PROVIDER, AuthUserInfo } from "@web3auth/react-native-sdk";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
@@ -46,6 +45,8 @@ interface W3SuiAuthContextType {
   ) => Promise<SignMessageResult | null | undefined>;
   launchWalletServices: () => Promise<void>;
   requestSignature: () => Promise<void>;
+  getUserInfo: () => Promise< AuthUserInfo | undefined>;
+  uiConsole: (...args: unknown[]) => void;
 }
 
 type SignMessageResult = {
@@ -124,7 +125,7 @@ export const W3SuiAuthProvider = ({
   useEffect(() => {
     const init = async () => {
       // IMP START - SDK Initialization
-      await web3auth.init();
+      // await web3auth.init();
 
       try {
         if (!process.env.EXPO_PUBLIC_CLIENT_ID) {
@@ -180,6 +181,19 @@ export const W3SuiAuthProvider = ({
     if (privateKeyBytes && privateKeyBytes.fill) {
       privateKeyBytes.fill(0);
     }
+  };
+
+  // get user info from web3auth
+  // should add more safety checks
+  const getUserInfo = async () => {
+    if (!web3auth.connected) {
+      setWeb3authConsole("Web3auth not connected");
+      return;
+    }
+    const userInfo = await web3auth.userInfo();
+    uiConsole(userInfo);
+    console.log("User info:", userInfo);
+    return userInfo;
   };
 
   // Get the address from the key pair
@@ -477,6 +491,8 @@ export const W3SuiAuthProvider = ({
     signMessage,
     launchWalletServices,
     requestSignature,
+    getUserInfo,
+    uiConsole,
   };
 
   return (
