@@ -1,31 +1,60 @@
-import React, { useEffect, useState } from "react";
-import {
-  Text,
-  View,
-  Button,
-  StyleSheet,
-  Dimensions,
-  ScrollView,
-} from "react-native";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK } from "@web3auth/base";
 import { CommonPrivateKeyProvider } from "@web3auth/base-provider";
-import Web3Auth, {
-  LOGIN_PROVIDER,
-} from "@web3auth/react-native-sdk";
+import Web3Auth, { LOGIN_PROVIDER } from "@web3auth/react-native-sdk";
 // import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
-import { SuiConfigType } from "./SuiConfigType";
-import {
-  SuiClient,
-  getFullnodeUrl,
-  CoinBalance,
-} from "@mysten/sui/client";
+import { SuiConfigType } from "../components/auth/SuiConfigType";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
-import { Transaction } from "@mysten/sui/transactions";
+import { SuiClient, getFullnodeUrl, CoinBalance } from "@mysten/sui/client";
 import { MIST_PER_SUI } from "@mysten/sui/utils";
 import { getFaucetHost, requestSuiFromFaucetV2 } from "@mysten/sui/faucet";
+import { Transaction } from "@mysten/sui/transactions";
+
+interface W3SuiAuthContextType {
+  loggedIn: boolean;
+  setLoggedIn: (loggedIn: boolean) => void;
+  address: string;
+  setAddress: (address: string) => void;
+  provider: any;
+  setProvider: (provider: any) => void;
+  web3authConsole: string;
+  setWeb3authConsole: (web3authConsole: string) => void;
+  email: string;
+  setEmail: (email: string) => void;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  getPrivateKey: () => Promise<string>; // type might be different
+  getKeyPair: () => Promise<Ed25519Keypair>;
+  clearKeyPair: (keyPair: Ed25519Keypair) => void;
+  getAddress: () => Promise<string>;
+  suiRPC: () => SuiClient | undefined;
+  login: (loginProvider: string) => Promise<void>;
+  logout: () => Promise<void>;
+  getChainId: () => Promise<void>;
+  balance: (balance: CoinBalance) => number;
+  getBalance: () => Promise<void>;
+  requestFaucet: () => Promise<void>;
+  sendTransaction: (
+    recipientAddress?: string,
+    amount?: number
+  ) => Promise<void>;
+  signMessage: (
+    message?: string
+  ) => Promise<SignMessageResult | null | undefined>;
+  launchWalletServices: () => Promise<void>;
+  requestSignature: () => Promise<void>;
+}
+
+type SignMessageResult = {
+  message: string;
+  signature: string;
+  publicKey: string;
+  address: string;
+  timestamp: string;
+};
 
 const scheme = "web3login"; // Or your desired app redirection scheme
 const resolvedRedirectUrl = Linking.createURL("auth", { scheme: scheme });
@@ -69,15 +98,28 @@ const SdkInitParams = {
 // console.log("SdkInitParams:", SdkInitParams);
 const web3auth = new Web3Auth(WebBrowser, SecureStore, SdkInitParams);
 
-const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [provider, setProvider] = useState<any>(null);
+const W3SuiAuthContext = createContext<W3SuiAuthContextType | undefined>(
+  undefined
+);
+
+export const W3SuiAuthProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [address, setAddress] = useState<string>("");
+  const [provider, setProvider] = useState<any>(null);
   const [web3authConsole, setWeb3authConsole] = useState<string>("");
   const [email, setEmail] = useState<string>("");
-  const [address, setAddress] = useState<string>("");
   const [open, setOpen] = useState(false);
 
-  // console.log(web3authConsole);
+  // ui console util
+  const uiConsole = (...args: unknown[]) => {
+    setWeb3authConsole(
+      `${JSON.stringify(args || {}, null, 2)}\n\n\n\n${web3authConsole}`
+    );
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -115,6 +157,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     console.log("Web3auth initialized", web3auth.ready);
   }, []);
 
+  // Get the private key from the provider
   const getPrivateKey = async () => {
     const privateKey = await provider.request({ method: "private_key" });
     return privateKey;
@@ -129,6 +172,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const keyPair = Ed25519Keypair.fromSecretKey(privateKeyUint8Array);
     return keyPair;
   };
+
   // Clear the key pair from memory after use
   const clearKeyPair = (keyPair: Ed25519Keypair) => {
     // Access the private key bytes and clear them
@@ -138,6 +182,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
+  // Get the address from the key pair
   const getAddress = async () => {
     const keyPair = await getKeyPair();
     const address = keyPair.toSuiAddress();
@@ -145,8 +190,10 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     setAddress(address);
     uiConsole(`Sui account: ${address}`);
     console.log(`Sui account: ${address}`);
+    return address;
   };
 
+  // Get the Sui RPC client
   const suiRPC = () => {
     if (!provider) {
       uiConsole("provider not initialized yet");
@@ -158,12 +205,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return client;
   };
 
-  const uiConsole = (...args: unknown[]) => {
-    setWeb3authConsole(
-      `${JSON.stringify(args || {}, null, 2)}\n\n\n\n${web3authConsole}`
-    );
-  };
-
+  // Login with the given login provider
   const login = async (loginProvider: string) => {
     try {
       if (!web3auth.ready) {
@@ -194,6 +236,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
+  // Logout from the web3auth
   const logout = async () => {
     if (!web3auth) {
       setWeb3authConsole("Web3auth not initialized");
@@ -210,6 +253,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
+  // Get the chain id
   const getChainId = async () => {
     if (!provider) {
       uiConsole("provider not initialized yet");
@@ -221,11 +265,12 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const networkDetails = await rpc?.getChainIdentifier(); // should get chain id
     uiConsole(networkDetails);
   };
-
+  // convert the balance to sui
   const balance = (balance: CoinBalance) => {
     return Number.parseInt(balance.totalBalance) / Number(MIST_PER_SUI);
   };
 
+  // get the balance from the address
   const getBalance = async () => {
     if (!provider) {
       uiConsole("provider not initialized yet");
@@ -249,9 +294,18 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
+  // rquest sui fromfuacet devnet/testnet
   const requestFaucet = async () => {
     if (!provider) {
       uiConsole("provider not initialized yet");
+      return;
+    }
+    if (
+      provider?.config?.chainConfig?.displayName !== "devnet" ||
+      provider?.config?.chainConfig?.displayName !== "testnet"
+    ) {
+      uiConsole("Requesting faucet is only supported for devnet/testnet");
+      console.log("Requesting faucet is only supported for devnet/testnet");
       return;
     }
 
@@ -279,6 +333,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
+  // send a transaction to the recipient address
   const sendTransaction = async (
     recipientAddress?: string,
     amount?: number
@@ -325,6 +380,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
+  // sign a message
   const signMessage = async (message?: string) => {
     if (!provider) {
       uiConsole("provider not initialized yet");
@@ -342,7 +398,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       const messageBytes = new TextEncoder().encode(fullMessage);
       const signature = await kp.signPersonalMessage(messageBytes);
 
-      const result = {
+      const result: SignMessageResult = {
         message: fullMessage,
         signature: signature.signature,
         publicKey: kp.getPublicKey().toSuiPublicKey(),
@@ -358,11 +414,12 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       return result;
     } catch (error) {
       uiConsole("Error signing message:", error);
-    console.log("Error signing message:", error);
-    return null;
+      console.log("Error signing message:", error);
+      return null;
     }
   };
 
+  // launch web3auth browser wallet
   const launchWalletServices = async () => {
     if (!web3auth) {
       setWeb3authConsole("Web3auth not initialized");
@@ -373,6 +430,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     await web3auth.launchWalletServices(chainConfig);
   };
 
+  // request a signature from the wallet services
   const requestSignature = async () => {
     if (!web3auth) {
       setWeb3authConsole("Web3auth not initialized");
@@ -383,9 +441,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       return;
     }
 
-    // const rpc = suiRPC();
     const address = await getAddress();
-
     const params = ["Hello World", address];
 
     setWeb3authConsole("Request Signature");
@@ -393,107 +449,47 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     uiConsole(res);
   };
 
-  const loggedInView = (
-    <View style={styles.buttonArea}>
-      <Button
-        title="Get User Info"
-        onPress={() => uiConsole(web3auth.userInfo())}
-      />
-      <Button title="Get Chain ID" onPress={() => getChainId()} />
-      <Button title="Get Accounts" onPress={() => getAddress()} />
-      <Button title="Get Balance" onPress={() => getBalance()} />
-      <Button title="Request Faucet" onPress={() => requestFaucet()} />
-      <Button
-        title="Send Transaction"
-        onPress={() =>
-          sendTransaction(
-            "0x41d4d47f7e2a9169f514ee4af2018bf486d53a347899ad21e16ba5ddc24e7fe3",
-            0.2
-          )
-        }
-      />
-      <Button title="Sign Message" onPress={() => signMessage()} />
-      <Button title="Show Wallet UI" onPress={() => launchWalletServices()} />
-      <Button
-        title="Request Signature from Wallet Services"
-        onPress={() => requestSignature()}
-      />
-      <Button title="Log Out" onPress={() => logout()} />
-    </View>
-  );
-
-  const unloggedInView = (
-    <View style={styles.buttonArea}>
-      <Button
-        title="Login with Auth0 Email Passwordless"
-        onPress={() => login(LOGIN_PROVIDER.EMAIL_PASSWORDLESS)}
-      />
-      <Text>or</Text>
-      <Button
-        title="Login with Google"
-        onPress={() => login(LOGIN_PROVIDER.GOOGLE)}
-      />
-      <Button
-        title="Login with Twitter"
-        onPress={() => login(LOGIN_PROVIDER.TWITTER)}
-      />
-      <Button
-        title="Login with Apple"
-        onPress={() => login(LOGIN_PROVIDER.APPLE)}
-      />
-    </View>
-  );
+  const value = {
+    loggedIn,
+    setLoggedIn,
+    address,
+    setAddress,
+    provider,
+    setProvider,
+    web3authConsole,
+    setWeb3authConsole,
+    email,
+    setEmail,
+    open,
+    setOpen,
+    getPrivateKey,
+    getKeyPair,
+    clearKeyPair,
+    getAddress,
+    suiRPC,
+    login,
+    logout,
+    getChainId,
+    balance,
+    getBalance,
+    requestFaucet,
+    sendTransaction,
+    signMessage,
+    launchWalletServices,
+    requestSignature,
+  };
 
   return (
-    <>
-      {open ? (
-        <>{children}</>
-      ) : (
-        <View style={styles.container}>
-          {loggedIn ? loggedInView : unloggedInView}
-          <View style={styles.consoleArea}>
-            <Text style={styles.consoleText}>Console:</Text>
-            <ScrollView style={styles.console}>
-              <Text>{web3authConsole}</Text>
-            </ScrollView>
-          </View>
-        </View>
-      )}
-    </>
+    <W3SuiAuthContext.Provider value={value}>
+      {children}
+    </W3SuiAuthContext.Provider>
   );
 };
 
-export default AuthWrapper;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 50,
-    paddingBottom: 30,
-  },
-  consoleArea: {
-    margin: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-  },
-  console: {
-    flex: 1,
-    backgroundColor: "#CCCCCC",
-    color: "#ffffff",
-    padding: 10,
-    width: Dimensions.get("window").width - 60,
-  },
-  consoleText: {
-    padding: 10,
-  },
-  buttonArea: {
-    flex: 2,
-    alignItems: "center",
-    justifyContent: "space-around",
-    paddingBottom: 30,
-  },
-});
+export const useW3SuiAuth = () => {
+  const context = useContext(W3SuiAuthContext);
+  if (!context) {
+    throw new Error("useW3SuiAuth must be used within a W3SuiAuthProvider");
+  }
+  return context;
+};
