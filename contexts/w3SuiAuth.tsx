@@ -21,8 +21,8 @@ interface W3SuiAuthContextType {
   setProvider: (provider: any) => void;
   web3authConsole: string;
   setWeb3authConsole: (web3authConsole: string) => void;
-  email: string;
-  setEmail: (email: string) => void;
+  emailLogin: string;
+  setEmailLogin: (emailLogin: string) => void;
   open: boolean;
   setOpen: (open: boolean) => void;
   getPrivateKey: () => Promise<string>; // type might be different
@@ -112,7 +112,7 @@ export const W3SuiAuthProvider = ({
   const [address, setAddress] = useState<string>("");
   const [provider, setProvider] = useState<any>(null);
   const [web3authConsole, setWeb3authConsole] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
+  const [emailLogin, setEmailLogin] = useState<string>("");
   const [open, setOpen] = useState(false);
 
   // ui console util
@@ -220,7 +220,7 @@ export const W3SuiAuthProvider = ({
   };
 
   // Login with the given login provider
-  const login = async (loginProvider: string) => {
+  const login = async (loginProvider: string,) => {
     try {
       if (!web3auth.ready) {
         setWeb3authConsole("Web3auth not initialized");
@@ -228,14 +228,26 @@ export const W3SuiAuthProvider = ({
       }
       setWeb3authConsole("Logging in");
       console.log("login in:", loginProvider);
-      await web3auth.login({
-        loginProvider,
-        redirectUrl: resolvedRedirectUrl,
-        mfaLevel: "none",
-        // extraLoginOptions: {
-        //   login_hint: "email",
-        // },
-      });
+      if (loginProvider === LOGIN_PROVIDER.EMAIL_PASSWORDLESS) {
+        if (!emailLogin) {
+          uiConsole("Email is required");
+          return;
+        }
+        await web3auth.login({
+          loginProvider,
+          redirectUrl: resolvedRedirectUrl,
+          extraLoginOptions: {
+            login_hint: emailLogin,
+          },
+        });
+      } else{
+
+        await web3auth.login({
+          loginProvider,
+          redirectUrl: resolvedRedirectUrl,
+          mfaLevel: "none",
+        });
+      }
 
       uiConsole("Logged In");
       if (web3auth.connected) {
@@ -472,8 +484,8 @@ export const W3SuiAuthProvider = ({
     setProvider,
     web3authConsole,
     setWeb3authConsole,
-    email,
-    setEmail,
+    emailLogin,
+    setEmailLogin,
     open,
     setOpen,
     getPrivateKey,
