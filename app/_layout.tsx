@@ -1,8 +1,9 @@
-// Polyfills must be imported FIRST
 import React from "react";
+import "./global.css";
 import "react-native-get-random-values";
 import "react-native-url-polyfill/auto";
 import "react-native-reanimated";
+// import "nativewind/metro";
 import QuickCrypto, {
   install as installQuickCrypto,
 } from "react-native-quick-crypto";
@@ -19,6 +20,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import AuthWrapper from "@/components/auth/AuthWrapper";
 import { W3SuiAuthProvider } from "@/contexts/w3SuiAuth";
 import Authenticator from "@/components/auth/Authenticator";
+import { HeroUINativeProvider } from "heroui-native";
 
 installQuickCrypto();
 
@@ -39,9 +41,10 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <W3SuiAuthProvider>
-        {/* <Authenticator> */}
+      <HeroUINativeProvider config={{colorScheme: 'dark'}}>
+    {/* <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}> */}
+        <W3SuiAuthProvider>
+          {/* <Authenticator> */}
           <AuthWrapper>
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -51,9 +54,10 @@ export default function RootLayout() {
               />
             </Stack>
           </AuthWrapper>
-        {/* </Authenticator> */}
-      </W3SuiAuthProvider>
+          {/* </Authenticator> */}
+        </W3SuiAuthProvider>
       <StatusBar style="auto" />
-    </ThemeProvider>
+    {/* </ThemeProvider> */}
+      </HeroUINativeProvider>
   );
 }
