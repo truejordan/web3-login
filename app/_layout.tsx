@@ -3,7 +3,6 @@ import "./global.css";
 import "react-native-get-random-values";
 import "react-native-url-polyfill/auto";
 import "react-native-reanimated";
-// import "nativewind/metro";
 import QuickCrypto, {
   install as installQuickCrypto,
 } from "react-native-quick-crypto";
@@ -19,8 +18,8 @@ import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import AuthWrapper from "@/components/auth/AuthWrapper";
 import { W3SuiAuthProvider } from "@/contexts/w3SuiAuth";
-import Authenticator from "@/components/auth/Authenticator";
 import { HeroUINativeProvider } from "heroui-native";
+import { LogBox } from "react-native";
 
 installQuickCrypto();
 
@@ -38,26 +37,27 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  LogBox.ignoreLogs([
+    // /Web3Auth/,
+    // /LoginError/,
+    // /login flow failed/
+    /LoginError.*cancel/,
+  ]);
 
   return (
-      <HeroUINativeProvider config={{colorScheme: 'dark'}}>
-    {/* <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}> */}
-        <W3SuiAuthProvider>
-          {/* <Authenticator> */}
-          <AuthWrapper>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="modal"
-                options={{ presentation: "modal", title: "Modal" }}
-              />
-            </Stack>
-          </AuthWrapper>
-          {/* </Authenticator> */}
-        </W3SuiAuthProvider>
+    <HeroUINativeProvider config={{ colorScheme: "dark" }}>
+      <W3SuiAuthProvider>
+        <AuthWrapper>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="modal"
+              options={{ presentation: "modal", title: "Modal" }}
+            />
+          </Stack>
+        </AuthWrapper>
+      </W3SuiAuthProvider>
       <StatusBar style="auto" />
-    {/* </ThemeProvider> */}
-      </HeroUINativeProvider>
+    </HeroUINativeProvider>
   );
 }

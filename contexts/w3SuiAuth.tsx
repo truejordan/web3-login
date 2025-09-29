@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK } from "@web3auth/base";
 import { CommonPrivateKeyProvider } from "@web3auth/base-provider";
-import Web3Auth, { LOGIN_PROVIDER, AuthUserInfo } from "@web3auth/react-native-sdk";
+import Web3Auth, {
+  LOGIN_PROVIDER,
+  AuthUserInfo,
+} from "@web3auth/react-native-sdk";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
@@ -45,7 +48,7 @@ interface W3SuiAuthContextType {
   ) => Promise<SignMessageResult | null | undefined>;
   launchWalletServices: () => Promise<void>;
   requestSignature: () => Promise<void>;
-  getUserInfo: () => Promise< AuthUserInfo | undefined>;
+  getUserInfo: () => Promise<AuthUserInfo | undefined>;
   uiConsole: (...args: unknown[]) => void;
 }
 
@@ -121,7 +124,7 @@ export const W3SuiAuthProvider = ({
       `${JSON.stringify(args || {}, null, 2)}\n\n\n\n${web3authConsole}`
     );
   };
-
+  console.log("network", provider?.config?.chainConfig?.displayName);
   useEffect(() => {
     const init = async () => {
       // IMP START - SDK Initialization
@@ -156,6 +159,22 @@ export const W3SuiAuthProvider = ({
     };
     init();
     console.log("Web3auth initialized", web3auth.ready);
+  }, []);
+
+  useEffect(() => {
+    const checkStoredToken = async () => {
+      try {
+        const storedToken = await SecureStore.getItemAsync("web3auth_token");
+        if (storedToken && web3auth.connected) {
+          setLoggedIn(true);
+          setProvider(privateKeyProvider);
+        }
+      } catch (error) {
+        console.error("Error checking stored token:", error);
+      }
+    };
+
+    checkStoredToken();
   }, []);
 
   // Get the private key from the provider
@@ -220,7 +239,7 @@ export const W3SuiAuthProvider = ({
   };
 
   // Login with the given login provider
-  const login = async (loginProvider: string,) => {
+  const login = async (loginProvider: string) => {
     try {
       if (!web3auth.ready) {
         setWeb3authConsole("Web3auth not initialized");
@@ -240,8 +259,7 @@ export const W3SuiAuthProvider = ({
             login_hint: emailLogin,
           },
         });
-      } else{
-
+      } else {
         await web3auth.login({
           loginProvider,
           redirectUrl: resolvedRedirectUrl,
@@ -252,11 +270,30 @@ export const W3SuiAuthProvider = ({
       uiConsole("Logged In");
       if (web3auth.connected) {
         // IMP END - Login
+        // get jwt token
+        const userinfo = await getUserInfo();
+        const idToken = userinfo?.idToken;
+        if (!idToken) {
+          uiConsole("Id token not found");
+          return;
+        }
+
+        // Store token securely
+        await SecureStore.setItemAsync("web3auth_token", idToken);
+        console.log("idToken:", idToken);
         setProvider(privateKeyProvider);
         uiConsole("Logged In");
         setLoggedIn(true);
       }
-    } catch (error) {
+    } catch (error: any) {
+
+      // Handle cancel error specifically
+      if (error?.code === 5114) {
+        console.log('error code 5114',error.code);
+        uiConsole("Login cancelled by user");
+        console.log("Login cancelled by user");
+        return; // Don't show error for cancellation
+      }
       uiConsole("error:", error);
       console.log("error:", error);
     }
@@ -273,6 +310,8 @@ export const W3SuiAuthProvider = ({
     await web3auth.logout();
 
     if (!web3auth.connected) {
+      // delete the token
+      await SecureStore.deleteItemAsync("web3auth_token");
       setProvider(null);
       uiConsole("Logged out");
       setLoggedIn(false);
@@ -326,9 +365,9 @@ export const W3SuiAuthProvider = ({
       uiConsole("provider not initialized yet");
       return;
     }
+    const supportedNetworks = ["devnet", "testnet"];
     if (
-      provider?.config?.chainConfig?.displayName !== "devnet" ||
-      provider?.config?.chainConfig?.displayName !== "testnet"
+      !supportedNetworks.includes(provider?.config?.chainConfig?.displayName)
     ) {
       uiConsole("Requesting faucet is only supported for devnet/testnet");
       console.log("Requesting faucet is only supported for devnet/testnet");

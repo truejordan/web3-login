@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Button, TextField, FormField } from "heroui-native";
+import { Button, TextField, FormField, Divider } from "heroui-native";
 import { Text, View, StyleSheet, Dimensions, ScrollView } from "react-native";
 import { useW3SuiAuth } from "@/contexts/w3SuiAuth";
 import { LOGIN_PROVIDER } from "@web3auth/react-native-sdk";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { Image } from "expo-image";
 
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const {
@@ -73,53 +75,58 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 
   const unloggedInView = (
-    <View className="flex-1 grow-[2} items-center justify-around pb-30">
-      {/* <FormField className=" flex-row gap-1 justify-between w-72">
-        <FormField.Content>
-          <TextField className="w-52" >
-            <TextField.Input placeholder="Enter your email" />
-          </TextField>
-        </FormField.Content>
-        <FormField.Indicator>
-          <Button onPress={() => login(LOGIN_PROVIDER.EMAIL_PASSWORDLESS)}>
-            <Button.LabelContent>
-              Login
-            </Button.LabelContent>
-          </Button>
-        </FormField.Indicator>
-        <FormField.ErrorMessage>This field is required</FormField.ErrorMessage>
-      </FormField> */}
-      <TextField className="flex-row gap-1 justify-between items-center">
-        {/* <TextField.Label>Email</TextField.Label> */}
-        <TextField.Input className="w-64" placeholder="Enter your email" onChangeText={setEmailLogin} />
+    <View className="flex-1 grow-[2} items-center gap-8 pt-32 pb-30">
+      <Image style={{ width: 96, height: 96 }} source={{uri:"https://www.d3jordan.com/d3j-logo-new.svg"}} />
+      <TextField className="flex gap-4 items-center rounded-r-none">
+        <TextField.Label>Email Login</TextField.Label>
+        <TextField.Input
+          className="w-72 h-[48px]"
+          placeholder="Enter your email"
+          onChangeText={setEmailLogin}
+        />
         <TextField.InputEndContent>
-          <Button onPress={() => login(LOGIN_PROVIDER.EMAIL_PASSWORDLESS)}>
+          <Button
+            variant="secondary"
+            className="w-72"
+            onPress={() => login(LOGIN_PROVIDER.EMAIL_PASSWORDLESS)}
+          >
             <Button.LabelContent>Login</Button.LabelContent>
           </Button>
         </TextField.InputEndContent>
         <TextField.ErrorMessage>This field is required</TextField.ErrorMessage>
       </TextField>
-
-      <Text className="text-white">or</Text>
-      <Button onPress={() => login(LOGIN_PROVIDER.GOOGLE)}>
-        <Button.LabelContent>Login with Google</Button.LabelContent>
-      </Button>
-      <Button onPress={() => login(LOGIN_PROVIDER.TWITTER)}>
-        <Button.LabelContent>Login with Twitter</Button.LabelContent>
-      </Button>
-      <Button onPress={() => login(LOGIN_PROVIDER.APPLE)}>
-        <Button.LabelContent>Login with Apple</Button.LabelContent>
-      </Button>
+      <View className="flex flex-row gap-8 items-center justify-center w-64 overflow-hidden">
+        <Divider orientation="horizontal" variant="thin" className=" w-full" />
+        <Text className="text-white">or</Text>
+        <Divider orientation="horizontal" variant="thin" className=" w-full" />
+      </View>
+      <View className="flex flex-row gap-4">
+        <Button className="w-20" onPress={() => login(LOGIN_PROVIDER.GOOGLE)}>
+          <Button.LabelContent>
+            <FontAwesome6 name="google" size={24} color="black" />
+          </Button.LabelContent>
+        </Button>
+        <Button className="w-20" onPress={() => login(LOGIN_PROVIDER.TWITTER)}>
+          <Button.LabelContent>
+            <FontAwesome6 name="x-twitter" size={24} color="black" />
+          </Button.LabelContent>
+        </Button>
+        <Button className="w-20" onPress={() => login(LOGIN_PROVIDER.APPLE)}>
+          <Button.LabelContent>
+            <FontAwesome6 name="apple" size={24} color="black" />
+          </Button.LabelContent>
+        </Button>
+      </View>
     </View>
   );
 
   return (
     <>
-      {open ? (
+      {loggedIn ? (
         <>{children}</>
       ) : (
-        <View className="flex-1 justify-center items-center pt-14 pb-8">
-          {loggedIn ? loggedInView : unloggedInView}
+        <View className="flex-1 items-center pt-14 pb-8">
+          {unloggedInView}
           {/* <View className=" flex-1 w-full items-center justify-center m-5">
             <Text className="text-white">Console:</Text>
             <ScrollView className=" flex-1 bg-slate-400 p-4 w-[80%]">
