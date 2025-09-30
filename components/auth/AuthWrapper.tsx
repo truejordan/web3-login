@@ -8,6 +8,8 @@ import HuiImage from "@/components/hui-image";
 import HuiExternalLink from "@/components/hui-external-link";
 import { HuiText } from "@/components/hui-text";
 import AuthConsole from "@/components/auth/AuthConsole";
+
+
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { loggedIn, login, setEmailLogin, emailLogin } = useW3SuiAuth();
 
