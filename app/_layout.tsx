@@ -8,18 +8,13 @@ import QuickCrypto, {
 } from "react-native-quick-crypto";
 import "../globals";
 import { Buffer } from "buffer";
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import AuthWrapper from "@/components/auth/AuthWrapper";
 import { W3SuiAuthProvider } from "@/contexts/w3SuiAuth";
 import { HeroUINativeProvider } from "heroui-native";
 import { LogBox } from "react-native";
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 installQuickCrypto();
 
@@ -40,9 +35,11 @@ export default function RootLayout() {
   LogBox.ignoreLogs([
     // /Web3Auth/,
     // /LoginError/,
-    // /login flow failed/
+    /login flow failed/,
     /LoginError.*cancel/,
   ]);
+
+  console.log("isLiquidGlassAvailable", isLiquidGlassAvailable());
 
   return (
     <HeroUINativeProvider config={{ colorScheme: "dark" }}>

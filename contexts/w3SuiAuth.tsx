@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK } from "@web3auth/base";
 import { CommonPrivateKeyProvider } from "@web3auth/base-provider";
 import Web3Auth, {
@@ -50,6 +56,8 @@ interface W3SuiAuthContextType {
   requestSignature: () => Promise<void>;
   getUserInfo: () => Promise<AuthUserInfo | undefined>;
   uiConsole: (...args: unknown[]) => void;
+  mybalance: number;
+  setMybalance: (mybalance: number) => void;
 }
 
 type SignMessageResult = {
@@ -99,7 +107,6 @@ const SdkInitParams = {
   //     },
   //   },
 };
-// console.log("SdkInitParams:", SdkInitParams);
 const web3auth = new Web3Auth(WebBrowser, SecureStore, SdkInitParams);
 
 const W3SuiAuthContext = createContext<W3SuiAuthContextType | undefined>(
@@ -117,19 +124,20 @@ export const W3SuiAuthProvider = ({
   const [web3authConsole, setWeb3authConsole] = useState<string>("");
   const [emailLogin, setEmailLogin] = useState<string>("");
   const [open, setOpen] = useState(false);
+  const [mybalance, setMybalance] = useState<number>(0);
 
   // ui console util
-  const uiConsole = (...args: unknown[]) => {
-    setWeb3authConsole(
-      `${JSON.stringify(args || {}, null, 2)}\n\n\n\n${web3authConsole}`
-    );
-  };
+  const uiConsole = useCallback(
+    (...args: unknown[]) => {
+      setWeb3authConsole(
+        `${JSON.stringify(args || {}, null, 2)}\n\n\n\n${web3authConsole}`
+      );
+    },
+    [web3authConsole]
+  );
   console.log("network", provider?.config?.chainConfig?.displayName);
   useEffect(() => {
     const init = async () => {
-      // IMP START - SDK Initialization
-      // await web3auth.init();
-
       try {
         if (!process.env.EXPO_PUBLIC_CLIENT_ID) {
           setWeb3authConsole(
@@ -178,29 +186,29 @@ export const W3SuiAuthProvider = ({
   }, []);
 
   // Get the private key from the provider
-  const getPrivateKey = async () => {
+  const getPrivateKey = useCallback(async () => {
     const privateKey = await provider.request({ method: "private_key" });
     return privateKey;
-  };
+  }, [provider]);
 
   // Create an instance of the Sui local key pair manager for signing transactions
-  const getKeyPair = async () => {
+  const getKeyPair = useCallback(async () => {
     const privateKey = await getPrivateKey();
     const privateKeyUint8Array = new Uint8Array(
       privateKey.match(/.{1,2}/g)!.map((byte: any) => parseInt(byte, 16))
     );
     const keyPair = Ed25519Keypair.fromSecretKey(privateKeyUint8Array);
     return keyPair;
-  };
+  }, [getPrivateKey]);
 
   // Clear the key pair from memory after use
-  const clearKeyPair = (keyPair: Ed25519Keypair) => {
+  const clearKeyPair = useCallback((keyPair: Ed25519Keypair) => {
     // Access the private key bytes and clear them
     const privateKeyBytes = (keyPair as any).secretKey;
     if (privateKeyBytes && privateKeyBytes.fill) {
       privateKeyBytes.fill(0);
     }
-  };
+  }, []);
 
   // get user info from web3auth
   // should add more safety checks
@@ -216,7 +224,7 @@ export const W3SuiAuthProvider = ({
   };
 
   // Get the address from the key pair
-  const getAddress = async () => {
+  const getAddress = useCallback(async () => {
     const keyPair = await getKeyPair();
     const address = keyPair.toSuiAddress();
     clearKeyPair(keyPair);
@@ -224,10 +232,10 @@ export const W3SuiAuthProvider = ({
     uiConsole(`Sui account: ${address}`);
     console.log(`Sui account: ${address}`);
     return address;
-  };
+  }, [getKeyPair, clearKeyPair, uiConsole]);
 
   // Get the Sui RPC client
-  const suiRPC = () => {
+  const suiRPC = useCallback(() => {
     if (!provider) {
       uiConsole("provider not initialized yet");
       return;
@@ -236,7 +244,7 @@ export const W3SuiAuthProvider = ({
       url: getFullnodeUrl(provider?.config?.chainConfig?.displayName), // Or 'testnet' or 'mainnet'
     });
     return client;
-  };
+  }, [provider, uiConsole]);
 
   // Login with the given login provider
   const login = async (loginProvider: string) => {
@@ -272,6 +280,7 @@ export const W3SuiAuthProvider = ({
         // IMP END - Login
         // get jwt token
         const userinfo = await getUserInfo();
+        // await getAddress();
         const idToken = userinfo?.idToken;
         if (!idToken) {
           uiConsole("Id token not found");
@@ -286,10 +295,9 @@ export const W3SuiAuthProvider = ({
         setLoggedIn(true);
       }
     } catch (error: any) {
-
       // Handle cancel error specifically
       if (error?.code === 5114) {
-        console.log('error code 5114',error.code);
+        console.log("error code 5114", error.code);
         uiConsole("Login cancelled by user");
         console.log("Login cancelled by user");
         return; // Don't show error for cancellation
@@ -336,28 +344,37 @@ export const W3SuiAuthProvider = ({
   };
 
   // get the balance from the address
-  const getBalance = async () => {
-    if (!provider) {
-      uiConsole("provider not initialized yet");
-      return;
-    }
-
-    try {
-      if (!address) {
-        uiConsole("address not initialized yet");
+  const getBalance = useCallback(
+    async (isPolling: boolean = false) => {
+      if (!provider) {
+        uiConsole("provider not initialized yet");
         return;
       }
-      const rpc = suiRPC();
-      setWeb3authConsole("Fetching balance");
-      const balanceResponse = await rpc?.getBalance({ owner: address });
-      const suiBalance = balance(balanceResponse as CoinBalance);
-      uiConsole(`Sui Balance: ${suiBalance}`);
-      console.log(`Sui Balance: ${suiBalance}`);
-    } catch (error) {
-      uiConsole("error fetching balance:", error);
-      console.log("error fetching balance:", error);
-    }
-  };
+
+      try {
+        if (!address) {
+          uiConsole("address not initialized yet");
+          return;
+        }
+        const rpc = suiRPC();
+        if (!isPolling) {
+          setWeb3authConsole("Fetching balance");
+        }
+        const balanceResponse = await rpc?.getBalance({ owner: address });
+        const suiBalance = balance(balanceResponse as CoinBalance);
+        setMybalance(suiBalance);
+        // only log balance when called not from interval polling
+        if (!isPolling) {
+          uiConsole(`Sui Balance: ${suiBalance}`);
+          console.log(`Sui Balance: ${suiBalance}`);
+        }
+      } catch (error) {
+        uiConsole("error fetching balance:", error);
+        console.log("error fetching balance:", error);
+      }
+    },
+    [provider, address, suiRPC, uiConsole]
+  );
 
   // rquest sui fromfuacet devnet/testnet
   const requestFaucet = async () => {
@@ -513,6 +530,30 @@ export const W3SuiAuthProvider = ({
     const res = await web3auth.request(chainConfig, "personal_sign", params);
     uiConsole(res);
   };
+  // balance pooling
+  useEffect(() => {
+    const startBalanceMonitoring = () => {
+      if (!loggedIn || !address) return;
+
+      const interval = setInterval(async () => {
+        try {
+          await getBalance(true);
+        } catch (error) {
+          console.log("Error monitoring balance:", error);
+        }
+      }, 4000);
+
+      return () => clearInterval(interval);
+    };
+    const stopPolling = startBalanceMonitoring();
+    return stopPolling;
+  }, [loggedIn, address, getBalance]);
+
+  useEffect(() => {
+    if (!address && loggedIn) {
+      getAddress();
+    }
+  }, [address, loggedIn, getAddress]);
 
   const value = {
     loggedIn,
@@ -544,6 +585,8 @@ export const W3SuiAuthProvider = ({
     requestSignature,
     getUserInfo,
     uiConsole,
+    mybalance,
+    setMybalance,
   };
 
   return (
