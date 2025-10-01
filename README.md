@@ -1,6 +1,6 @@
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.txt) file for details.
 
-# Web3Auth + Sui Blockchain Integration Tutorial
+# Web3Auth + Sui React Native Social Login Template
 ![project banner](/assets/sui_web3auth_reatc_native_login_template_banner.png)
 
 Hey there! 👋 Welcome to your journey into building Web3 mobile applications! This project is your friendly guide to creating amazing React Native apps with Web3Auth authentication and Sui blockchain integration. Whether you're new to Web3 or looking to add mobile support to your dApp, we've got you covered with this real-world examples.
