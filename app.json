@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.d3jordan.web3login"
+      "bundleIdentifier": "com.youridentifier.web3login"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.d3jordan.web3login"
+      "package": "com.youridentifier.web3login"
     },
     "web": {
       "output": "static",
