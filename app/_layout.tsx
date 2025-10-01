@@ -1,5 +1,5 @@
-// Polyfills must be imported FIRST
 import React from "react";
+import "./global.css";
 import "react-native-get-random-values";
 import "react-native-url-polyfill/auto";
 import "react-native-reanimated";
@@ -8,17 +8,13 @@ import QuickCrypto, {
 } from "react-native-quick-crypto";
 import "../globals";
 import { Buffer } from "buffer";
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import AuthWrapper from "@/components/auth/AuthWrapper";
 import { W3SuiAuthProvider } from "@/contexts/w3SuiAuth";
-import Authenticator from "@/components/auth/Authenticator";
+import { HeroUINativeProvider } from "heroui-native";
+import { LogBox } from "react-native";
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 installQuickCrypto();
 
@@ -36,24 +32,29 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  LogBox.ignoreLogs([
+    // /Web3Auth/,
+    // /LoginError/,
+    /login flow failed/,
+    /LoginError.*cancel/,
+  ]);
+
+  console.log("isLiquidGlassAvailable", isLiquidGlassAvailable());
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <HeroUINativeProvider config={{ colorScheme: "dark" }}>
       <W3SuiAuthProvider>
-        {/* <Authenticator> */}
-          <AuthWrapper>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="modal"
-                options={{ presentation: "modal", title: "Modal" }}
-              />
-            </Stack>
-          </AuthWrapper>
-        {/* </Authenticator> */}
+        <AuthWrapper>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="modal"
+              options={{ presentation: "modal", title: "Modal" }}
+            />
+          </Stack>
+        </AuthWrapper>
       </W3SuiAuthProvider>
       <StatusBar style="auto" />
-    </ThemeProvider>
+    </HeroUINativeProvider>
   );
 }

@@ -10,6 +10,7 @@ import Animated, {
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useTheme } from "heroui-native";
 
 const HEADER_HEIGHT = 250;
 
@@ -44,10 +45,12 @@ export default function ParallaxScrollView({
     };
   });
 
+  const { colors } = useTheme();
+
   return (
     <Animated.ScrollView
       ref={scrollRef}
-      style={{ backgroundColor, flex: 1 }}
+      style={{ backgroundColor: colors.background, flex: 1 }}
       scrollEventThrottle={16}>
       <Animated.View
         style={[
