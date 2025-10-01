@@ -15,8 +15,7 @@ This tutorial covers the complete integration of:
 ## 🚀 Quick Start
 
 ```bash
-# Clone and install
-git clone <your-repo-url>
+# Clone this repo and install
 cd web3-login
 npm install
 
