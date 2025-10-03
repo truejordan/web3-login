@@ -13,6 +13,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { FadeIn } from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import { isValidSuiAddress } from "@mysten/sui/utils";
+import { useW3IotaAuth } from "@/contexts/w3IotaAuth";
 
 export default function HomeScreen() {
   const {
@@ -21,7 +22,7 @@ export default function HomeScreen() {
     launchWalletServices,
     address,
     mybalance,
-  } = useW3SuiAuth();
+  } = useW3IotaAuth();
   const [getFaucet, setGetFaucet] = useState(false);
   const [amount, setAmount] = useState(0);
   const [recipientAddress, setRecipientAddress] = useState("");

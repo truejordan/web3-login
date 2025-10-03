@@ -3,9 +3,10 @@ import { Card } from 'heroui-native'
 import { HuiText } from '@/components/hui-text'
 import React from 'react'
 import { useW3SuiAuth } from '@/contexts/w3SuiAuth'
+import { useW3IotaAuth } from '@/contexts/w3IotaAuth'
 
 const AuthConsole = () => {
-  const { web3authConsole } = useW3SuiAuth()
+  const { web3authConsole } = useW3IotaAuth()
   return (
     <Card className="flex w-full p-4">
         <Card.Body className=" text-white ">

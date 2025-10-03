@@ -3,6 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "heroui-native";
 import { useW3SuiAuth } from "@/contexts/w3SuiAuth";
 import AuthConsole from "@/components/auth/AuthConsole";
+import { useW3IotaAuth } from "@/contexts/w3IotaAuth";
 
 export default function FunctionsScreen() {
   const {
@@ -17,7 +18,7 @@ export default function FunctionsScreen() {
     launchWalletServices,
     requestSignature,
     logout,
-  } = useW3SuiAuth();
+  } = useW3IotaAuth();
 
   const loggedInView = (
     <View className="flex-1 items-center gap-4 pb-24 pt-8">
