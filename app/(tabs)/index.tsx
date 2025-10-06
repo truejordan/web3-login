@@ -87,6 +87,14 @@ export default function HomeScreen() {
       setGetFaucet(false);
     }, 4500);
   };
+  const tokenType = (token: string) => {
+    if (token === "iota") {
+      return "IOTA ";
+    } else if (token === "sui") {
+      return "SUI 💧";
+    }
+    return "Unknown";
+  };
 
   return (
     <SafeAreaView className="flex-1">
@@ -98,7 +106,7 @@ export default function HomeScreen() {
                 <View className="flex-row items-end gap-2">
                   <HuiText className="text-4xl">{`${mybalance}`}</HuiText>
                   <HuiText className="text-md text-cyan-300 pb-2">
-                    Sui💧
+                    {tokenType('iota')}
                   </HuiText>
                 </View>
                 <TouchableOpacity

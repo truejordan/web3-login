@@ -14,12 +14,13 @@ import Web3Auth, {
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
-import { IotaConfigType } from "../components/auth/iotaConfig";
+import { IotaConfigType } from "../components/auth/IotaConfigType";
 import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
-import { getFullnodeUrl, IotaClient, CoinBalance } from "@iota/iota-sdk/client";
-import { NANOS_PER_IOTA } from "@iota/iota-sdk/utils";
+import { getFullnodeUrl, IotaClient, CoinBalance, IotaTransactionBlockResponse } from "@iota/iota-sdk/client";
+import { NANOS_PER_IOTA, normalizeIotaAddress } from "@iota/iota-sdk/utils";
 import { getFaucetHost, requestIotaFromFaucetV0 } from "@iota/iota-sdk/faucet";
 import { Transaction } from "@iota/iota-sdk/transactions";
+import { useQueryTxHelpers } from "@/utils/queryTxHelpers";
 
 interface W3IotaAuthContextType {
   loggedIn: boolean;
@@ -58,6 +59,8 @@ interface W3IotaAuthContextType {
   uiConsole: (...args: unknown[]) => void;
   mybalance: number;
   setMybalance: (mybalance: number) => void;
+  accountActivity: any[];
+  setAccountActivity: (accountActivity: any[]) => void;
 }
 
 type SignMessageResult = {
@@ -124,6 +127,7 @@ export const W3IotaAuthProvider = ({
   const [emailLogin, setEmailLogin] = useState<string>("");
   const [open, setOpen] = useState(false);
   const [mybalance, setMybalance] = useState<number>(0);
+  const [accountActivity, setAccountActivity] = useState<any[]>([]);
 
   // ui console util
   const uiConsole = useCallback(
@@ -134,7 +138,8 @@ export const W3IotaAuthProvider = ({
     },
     [web3authConsole]
   );
-  console.log("network", provider?.config?.chainConfig?.displayName);
+
+  const { sumDeltaFor, gasFeeCal, getRecipientAddress } = useQueryTxHelpers();
 
   useEffect(() => {
     const init = async () => {
@@ -529,6 +534,107 @@ export const W3IotaAuthProvider = ({
     uiConsole(res);
   };
 
+  // subscribe to transactions
+  const queryAccountActivity = useCallback(async (isPolling: boolean = false) => {
+    if (!provider) {
+      uiConsole("provider not initialized yet");
+      return;
+    }
+
+    const rpc = iotaRPC();
+    const sentTransactions = await rpc?.queryTransactionBlocks({
+      filter: {
+        FromAddress: address,
+      },
+      limit: 10,
+      options:{
+        showEffects: true,
+        showBalanceChanges: true,
+        showInput: true,
+        showEvents: true,
+        showObjectChanges: true,
+        showRawEffects: false,
+        showRawInput:false,
+      },
+      order: "descending",
+    });
+    
+    const receivedTransactions = await rpc?.queryTransactionBlocks({
+      filter: {
+        ToAddress: address,
+      },
+      limit: 10,
+      options: {
+        showEffects: true,
+        showBalanceChanges: true,
+        showInput: true,
+        showEvents: true,
+        showObjectChanges: true,
+        showRawEffects: false,
+        showRawInput: false,
+      },
+      order: "descending",
+    });
+
+    // Get staking events
+    // const stakingEvents = await rpc?.queryTransactionBlocks({
+    //   filter: {
+    //     MoveEvent: {
+    //         type: "0x3::validator::StakingRequestEvent",
+    //         // targetAddress: address,
+    //         // fields: ["request_id"],
+    //       },
+    //     },
+    //     limit: 20,
+    //     order: "descending",
+    //   } 
+    // );
+
+    const activity = [
+      ...((sentTransactions?.data || []).map((tx: IotaTransactionBlockResponse) => {
+        const delta = sumDeltaFor(tx.balanceChanges, address, "::iota::IOTA"); // negative when you send
+        const amountMistAbs = delta < 0n ? -delta : delta;
+        const gasMist = gasFeeCal(tx);
+        const recipientAddr = getRecipientAddress(tx, address, "::iota::IOTA");
+
+        return {
+          id: tx.digest,
+          type: 'sent',
+          timestamp: tx.timestampMs ?? null,
+          amount: Number(amountMistAbs.toString()) / Number(NANOS_PER_IOTA),
+          recipient: recipientAddr,
+          status: tx.effects?.status?.status ?? 'unknown',
+          gasFee: Number(gasMist.toString()) / Number(NANOS_PER_IOTA),
+          raw: tx,
+        };
+      })),
+
+      ...((receivedTransactions?.data || []).map((tx: IotaTransactionBlockResponse) => {
+        const delta = sumDeltaFor(tx.balanceChanges, address, "::iota::IOTA"); // positive when you receive
+        const amountMist = delta > 0n ? delta : 0n;
+        const gasMist = gasFeeCal(tx);
+        // const senderAddr = (tx as any).transaction?.data?.sender || 'Unknown'; // requires showInput: true
+        const senderAddr = tx.transaction?.data?.sender ? normalizeIotaAddress(tx.transaction.data.sender) : 'Unknown';
+        return {
+          id: tx.digest,
+          type: 'received',
+          timestamp: tx.timestampMs ?? null,
+          amount: Number(amountMist.toString()) / Number(NANOS_PER_IOTA),
+          sender: senderAddr,
+          status: tx.effects?.status?.status ?? 'unknown',
+          gasFee: Number(gasMist.toString()) / Number(NANOS_PER_IOTA),
+          raw: tx,
+        };
+      })),
+      // staking can be added here
+    ].sort((a: any, b: any) => Number(b?.timestamp) - Number(a?.timestamp) || 0);
+
+    setAccountActivity(activity);
+
+    return activity;
+
+  }, [provider, address, iotaRPC, uiConsole, setAccountActivity,sumDeltaFor,gasFeeCal,getRecipientAddress]);
+
   // balance pooling
   useEffect(() => {
     const startBalanceMonitoring = () => {
@@ -537,6 +643,7 @@ export const W3IotaAuthProvider = ({
       const interval = setInterval(async () => {
         try {
           await getBalance(true);
+          await queryAccountActivity(true);
         } catch (error) {
           console.log("Error monitoring balance:", error);
         }
@@ -546,7 +653,7 @@ export const W3IotaAuthProvider = ({
     };
     const stopPolling = startBalanceMonitoring();
     return stopPolling;
-  }, [loggedIn, address, getBalance]);
+  }, [loggedIn, address, getBalance, queryAccountActivity]);
 
   useEffect(() => {
     if (!address && loggedIn) {
@@ -586,6 +693,8 @@ export const W3IotaAuthProvider = ({
     uiConsole,
     mybalance,
     setMybalance,
+    accountActivity,
+    setAccountActivity,
   };
   return (
     <W3IotaAuthContext.Provider value={value}>
