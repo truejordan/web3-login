@@ -16,10 +16,11 @@ import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
 import { SuiConfigType } from "../components/auth/SuiConfigType";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
-import { SuiClient, getFullnodeUrl, CoinBalance } from "@mysten/sui/client";
-import { MIST_PER_SUI } from "@mysten/sui/utils";
+import { SuiClient, getFullnodeUrl, CoinBalance, SuiTransactionBlockResponse } from "@mysten/sui/client";
+import { MIST_PER_SUI, normalizeSuiAddress } from "@mysten/sui/utils";
 import { getFaucetHost, requestSuiFromFaucetV2 } from "@mysten/sui/faucet";
 import { Transaction } from "@mysten/sui/transactions";
+import { useQueryTxHelpers } from "@/utils/queryTxHelpers";
 
 interface W3SuiAuthContextType {
   loggedIn: boolean;
@@ -58,6 +59,8 @@ interface W3SuiAuthContextType {
   uiConsole: (...args: unknown[]) => void;
   mybalance: number;
   setMybalance: (mybalance: number) => void;
+  accountActivity: any[];
+  setAccountActivity: (accountActivity: any[]) => void;
 }
 
 type SignMessageResult = {
@@ -125,6 +128,8 @@ export const W3SuiAuthProvider = ({
   const [emailLogin, setEmailLogin] = useState<string>("");
   const [open, setOpen] = useState(false);
   const [mybalance, setMybalance] = useState<number>(0);
+  const [accountActivity, setAccountActivity] = useState<any[]>([]);
+  console.log("network", provider?.config?.chainConfig?.displayName);
 
   // ui console util
   const uiConsole = useCallback(
@@ -135,7 +140,9 @@ export const W3SuiAuthProvider = ({
     },
     [web3authConsole]
   );
-  console.log("network", provider?.config?.chainConfig?.displayName);
+
+  const { sumSuiDeltaFor, gasFeeMist, getRecipientAddress } = useQueryTxHelpers();
+  
   useEffect(() => {
     const init = async () => {
       try {
@@ -530,7 +537,110 @@ export const W3SuiAuthProvider = ({
     const res = await web3auth.request(chainConfig, "personal_sign", params);
     uiConsole(res);
   };
-  // balance pooling
+
+  // subscribe to transactions
+  const queryAccountActivity = useCallback(async (isPolling: boolean = false) => {
+    if (!provider) {
+      uiConsole("provider not initialized yet");
+      return;
+    }
+
+    const rpc = suiRPC();
+    const sentTransactions = await rpc?.queryTransactionBlocks({
+      filter: {
+        FromAddress: address,
+      },
+      limit: 10,
+      options:{
+        showEffects: true,
+        showBalanceChanges: true,
+        showInput: true,
+        showEvents: true,
+        showObjectChanges: true,
+        showRawEffects: false,
+        showRawInput:false,
+      },
+      order: "descending",
+    });
+    
+    const receivedTransactions = await rpc?.queryTransactionBlocks({
+      filter: {
+        ToAddress: address,
+      },
+      limit: 10,
+      options: {
+        showEffects: true,
+        showBalanceChanges: true,
+        showInput: true,
+        showEvents: true,
+        showObjectChanges: true,
+        showRawEffects: false,
+        showRawInput: false,
+      },
+      order: "descending",
+    });
+
+    // Get staking events
+    // const stakingEvents = await rpc?.queryTransactionBlocks({
+    //   filter: {
+    //     MoveEvent: {
+    //         type: "0x3::validator::StakingRequestEvent",
+    //         // targetAddress: address,
+    //         // fields: ["request_id"],
+    //       },
+    //     },
+    //     limit: 20,
+    //     order: "descending",
+    //   } 
+    // );
+
+    const activity = [
+      ...((sentTransactions?.data || []).map((tx: SuiTransactionBlockResponse) => {
+        const delta = sumSuiDeltaFor(tx.balanceChanges, address, "::sui::SUI"); // negative when you send
+        const amountMistAbs = delta < 0n ? -delta : delta;
+        const gasMist = gasFeeMist(tx);
+        const recipientAddr = getRecipientAddress(tx, address, "::sui::SUI");
+
+        return {
+          id: tx.digest,
+          type: 'sent',
+          timestamp: tx.timestampMs ?? null,
+          amount: Number(amountMistAbs.toString()) / Number(MIST_PER_SUI),
+          recipient: recipientAddr,
+          status: tx.effects?.status?.status ?? 'unknown',
+          gasFee: Number(gasMist.toString()) / Number(MIST_PER_SUI),
+          raw: tx,
+        };
+      })),
+
+      ...((receivedTransactions?.data || []).map((tx: SuiTransactionBlockResponse) => {
+        const delta = sumSuiDeltaFor(tx.balanceChanges, address, "::sui::SUI"); // positive when you receive
+        const amountMist = delta > 0n ? delta : 0n;
+        const gasMist = gasFeeMist(tx);
+        // const senderAddr = (tx as any).transaction?.data?.sender || 'Unknown'; // requires showInput: true
+        const senderAddr = tx.transaction?.data?.sender ? normalizeSuiAddress(tx.transaction.data.sender) : 'Unknown';
+        return {
+          id: tx.digest,
+          type: 'received',
+          timestamp: tx.timestampMs ?? null,
+          amount: Number(amountMist.toString()) / Number(MIST_PER_SUI),
+          sender: senderAddr,
+          status: tx.effects?.status?.status ?? 'unknown',
+          gasFee: Number(gasMist.toString()) / Number(MIST_PER_SUI),
+          raw: tx,
+        };
+      })),
+      // staking can be added here
+    ].sort((a: any, b: any) => Number(b?.timestamp) - Number(a?.timestamp) || 0);
+
+    setAccountActivity(activity);
+
+    return activity;
+
+  }, [provider, address, suiRPC, uiConsole, setAccountActivity,sumSuiDeltaFor,gasFeeMist,getRecipientAddress]);
+
+
+  // balance polling
   useEffect(() => {
     const startBalanceMonitoring = () => {
       if (!loggedIn || !address) return;
@@ -538,6 +648,7 @@ export const W3SuiAuthProvider = ({
       const interval = setInterval(async () => {
         try {
           await getBalance(true);
+          await queryAccountActivity(true);
         } catch (error) {
           console.log("Error monitoring balance:", error);
         }
@@ -547,7 +658,7 @@ export const W3SuiAuthProvider = ({
     };
     const stopPolling = startBalanceMonitoring();
     return stopPolling;
-  }, [loggedIn, address, getBalance]);
+  }, [loggedIn, address, getBalance, queryAccountActivity]);
 
   useEffect(() => {
     if (!address && loggedIn) {
@@ -587,6 +698,8 @@ export const W3SuiAuthProvider = ({
     uiConsole,
     mybalance,
     setMybalance,
+    accountActivity,
+    setAccountActivity,
   };
 
   return (

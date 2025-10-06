@@ -12,48 +12,12 @@ import {
 import { Pressable } from "react-native";
 import { HuiText } from "@/components/hui-text";
 import { BlurView } from "expo-blur";
+import { hslToHex } from "@/utils/HlstoHex";
 
 export default function TabLayout() {
   const { colors } = useTheme();
   console.log(colors.foreground);
 
-  const hslToHex = (hsl: string): string => {
-    // Extract HSL values from string like "hsl(300 0% 99%)" (no commas)
-    const match = hsl.match(/hsl\((\d+)\s+(\d+)%\s+(\d+)%\)/);
-    if (!match) return hsl; // Return original if not HSL format
-
-    const h = parseInt(match[1]) / 360;
-    const s = parseInt(match[2]) / 100;
-    const l = parseInt(match[3]) / 100;
-
-    const hue2rgb = (p: number, q: number, t: number) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-
-    let r, g, b;
-
-    if (s === 0) {
-      r = g = b = l; // achromatic
-    } else {
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-      r = hue2rgb(p, q, h + 1 / 3);
-      g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1 / 3);
-    }
-
-    const toHex = (c: number) => {
-      const hex = Math.round(c * 255).toString(16);
-      return hex.length === 1 ? "0" + hex : hex;
-    };
-
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-  };
   const foregroundColor: string = hslToHex(colors.mutedForeground);
   console.log("foregroundColor", foregroundColor);
   const activeColor: string = hslToHex(colors.foreground);
@@ -111,6 +75,11 @@ export default function TabLayout() {
         >
           <TabTrigger name="home" href="/(tabs)" asChild>
             <TabButton icon="house.fill">Home</TabButton>
+          </TabTrigger>
+          <TabTrigger name="activity" href="/(tabs)/activity" asChild>
+            <TabButton icon="arrow.up.arrow.down.square.fill">
+              Activity
+            </TabButton>
           </TabTrigger>
           <TabTrigger name="explore" href="/(tabs)/explore" asChild>
             <TabButton icon="paperplane.fill">Explore</TabButton>
