@@ -33,7 +33,7 @@ const AuthWrapper = () => {
               <Button
                 variant="secondary"
                 className="w-72"
-                onPress={() => login(LOGIN_PROVIDER.EMAIL_PASSWORDLESS)}
+                onPress={() => login(LOGIN_PROVIDER.JWT)}
               >
                 <Button.LabelContent>Login</Button.LabelContent>
               </Button>
@@ -58,7 +58,7 @@ const AuthWrapper = () => {
           <View className="flex flex-row gap-4">
             <Button
               className="w-20"
-              onPress={() => login(LOGIN_PROVIDER.GOOGLE)}
+              onPress={() => login(LOGIN_PROVIDER.JWT, 'google-oauth2')}
             >
               <Button.LabelContent>
                 <FontAwesome6 name="google" size={24} color="black" />
@@ -66,7 +66,7 @@ const AuthWrapper = () => {
             </Button>
             <Button
               className="w-20"
-              onPress={() => login(LOGIN_PROVIDER.TWITTER)}
+              onPress={() => login(LOGIN_PROVIDER.JWT, 'Twitter')}
             >
               <Button.LabelContent>
                 <FontAwesome6 name="x-twitter" size={24} color="black" />
@@ -74,7 +74,7 @@ const AuthWrapper = () => {
             </Button>
             <Button
               className="w-20"
-              onPress={() => login(LOGIN_PROVIDER.APPLE)}
+              onPress={() => login(LOGIN_PROVIDER.JWT, 'Apple')}
             >
               <Button.LabelContent>
                 <FontAwesome6 name="apple" size={24} color="black" />

@@ -10,6 +10,7 @@ import { CommonPrivateKeyProvider } from "@web3auth/base-provider";
 import Web3Auth, {
   LOGIN_PROVIDER,
   AuthUserInfo,
+  TypeOfLogin
 } from "@web3auth/react-native-sdk";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
@@ -40,7 +41,7 @@ interface W3SuiAuthContextType {
   clearKeyPair: (keyPair: Ed25519Keypair) => void;
   getAddress: () => Promise<string>;
   suiRPC: () => SuiClient | undefined;
-  login: (loginProvider: string) => Promise<void>;
+  login: (loginProvider: string, auth0Provider?: string) => Promise<void>;
   logout: () => Promise<void>;
   getChainId: () => Promise<void>;
   balance: (balance: CoinBalance) => number;
@@ -102,13 +103,13 @@ const SdkInitParams = {
   // useCoreKitKey: true, // for custom auth jwt login
   privateKeyProvider,
   // for custom auth jwt login
-  // loginConfig: {
-  //     jwt: {
-  //       verifier: "w3a-auth0-demo",
-  //       typeOfLogin: "jwt" as TypeOfLogin,
-  //       clientId: process.env.EXPO_PUBLIC_CLIENT_ID,
-  //     },
-  //   },
+  loginConfig: {
+      jwt: {
+        verifier: "3xl-sub-auth",
+        typeOfLogin: "jwt" as TypeOfLogin,
+        clientId: process.env.EXPO_PUBLIC_AUTHO_CLIENT_ID!,
+      },
+    },
 };
 const web3auth = new Web3Auth(WebBrowser, SecureStore, SdkInitParams);
 
@@ -254,7 +255,7 @@ export const W3SuiAuthProvider = ({
   }, [provider, uiConsole]);
 
   // Login with the given login provider
-  const login = async (loginProvider: string) => {
+  const login = async (loginProvider: string, auth0Provider?: string) => {
     try {
       if (!web3auth.ready) {
         setWeb3authConsole("Web3auth not initialized");
@@ -272,6 +273,10 @@ export const W3SuiAuthProvider = ({
           redirectUrl: resolvedRedirectUrl,
           extraLoginOptions: {
             login_hint: emailLogin,
+            domain:'https://dev-pqfoyphs7qp6u38e.uk.auth0.com',
+            verifierIdField: "sub",
+            connection: 'email',
+            // prompt: 'login'
           },
         });
       } else {
@@ -279,6 +284,11 @@ export const W3SuiAuthProvider = ({
           loginProvider,
           redirectUrl: resolvedRedirectUrl,
           mfaLevel: "none",
+          extraLoginOptions: {
+            domain:'https://dev-pqfoyphs7qp6u38e.uk.auth0.com',
+            verifierIdField: "sub",
+            connection: auth0Provider
+          },
         });
       }
 
