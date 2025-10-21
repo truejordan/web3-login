@@ -263,7 +263,7 @@ export const W3SuiAuthProvider = ({
       }
       setWeb3authConsole("Logging in");
       console.log("login in:", loginProvider);
-      if (loginProvider === LOGIN_PROVIDER.EMAIL_PASSWORDLESS) {
+      if (loginProvider === LOGIN_PROVIDER.JWT && auth0Provider === 'email' ) {
         if (!emailLogin) {
           uiConsole("Email is required");
           return;
@@ -273,10 +273,9 @@ export const W3SuiAuthProvider = ({
           redirectUrl: resolvedRedirectUrl,
           extraLoginOptions: {
             login_hint: emailLogin,
-            domain:'https://dev-pqfoyphs7qp6u38e.uk.auth0.com',
+            domain:'https://dev-pqfoyphs7qp6u38e.uk.auth0.com', //replace with your authO domain
             verifierIdField: "sub",
             connection: 'email',
-            // prompt: 'login'
           },
         });
       } else {
@@ -285,7 +284,7 @@ export const W3SuiAuthProvider = ({
           redirectUrl: resolvedRedirectUrl,
           mfaLevel: "none",
           extraLoginOptions: {
-            domain:'https://dev-pqfoyphs7qp6u38e.uk.auth0.com',
+            domain:'https://dev-pqfoyphs7qp6u38e.uk.auth0.com', //replace with your authO domain
             verifierIdField: "sub",
             connection: auth0Provider
           },

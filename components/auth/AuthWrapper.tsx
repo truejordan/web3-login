@@ -33,7 +33,7 @@ const AuthWrapper = () => {
               <Button
                 variant="secondary"
                 className="w-72"
-                onPress={() => login(LOGIN_PROVIDER.JWT)}
+                onPress={() => login(LOGIN_PROVIDER.JWT, 'email')}
               >
                 <Button.LabelContent>Login</Button.LabelContent>
               </Button>
