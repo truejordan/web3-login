@@ -99,6 +99,7 @@ const SdkInitParams = {
   clientId: process.env.EXPO_PUBLIC_CLIENT_ID!,
   redirectUrl: resolvedRedirectUrl,
   browserRedirectUrl: resolvedRedirectUrl,
+  sessionTime: 86400 * 7,
   // clientSecret: process.env.EXPO_PUBLIC_CLIENT_SECRET!,
   // useCoreKitKey: true, // for custom auth jwt login
   privateKeyProvider,
@@ -298,13 +299,16 @@ export const W3SuiAuthProvider = ({
         const userinfo = await getUserInfo();
         // await getAddress();
         const idToken = userinfo?.idToken;
-        if (!idToken) {
-          uiConsole("Id token not found");
+        const auth0JWT = userinfo?.oAuthIdToken;
+        if (!idToken || !auth0JWT) {
+          uiConsole("jwt tokens not found");
           return;
         }
 
         // Store token securely
         await SecureStore.setItemAsync("web3auth_token", idToken);
+        await SecureStore.setItemAsync("auth0_token", auth0JWT);
+       
         console.log("idToken:", idToken);
         setProvider(privateKeyProvider);
         uiConsole("Logged In");
