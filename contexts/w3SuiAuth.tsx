@@ -308,8 +308,6 @@ export const W3SuiAuthProvider = ({
         // Store token securely
         await SecureStore.setItemAsync("web3auth_token", idToken);
         await SecureStore.setItemAsync("auth0_token", auth0JWT);
-       
-        console.log("idToken:", idToken);
         setProvider(privateKeyProvider);
         uiConsole("Logged In");
         setLoggedIn(true);
@@ -340,6 +338,7 @@ export const W3SuiAuthProvider = ({
     if (!web3auth.connected) {
       // delete the token
       await SecureStore.deleteItemAsync("web3auth_token");
+      await SecureStore.deleteItemAsync("auth0_token")
       setProvider(null);
       uiConsole("Logged out");
       setLoggedIn(false);
